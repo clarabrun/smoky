@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Efeito Fumaça - SMOKY</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            background: black;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Arial Black', 'Impact', sans-serif;
+            cursor: default;
+        }
+
+        .container {
+            text-align: center;
+        }
+
+        .smoke-wrapper {
+            display: flex;
+            gap: 0.1em;
+            justify-content: center;
+        }
+
+        .smoke-letter {
+            font-size: 8rem;
+            font-weight: 900;
+            color: white;
+            text-shadow: 0 0 10px rgba(255,255,255,0.5);
+            display: inline-block;
+            cursor: pointer;
+            user-select: none;
+            opacity: 1;
+            filter: blur(0px);
+            transition: all 0.1s ease;
+        }
+
+        /* Animação de desaparecimento individual */
+        @keyframes smokeDisappear {
+            0% {
+                transform: translateY(0) rotate(0deg);
+                opacity: 1;
+                filter: blur(0px);
+            }
+            30% {
+                transform: translateY(-20px) rotate(5deg);
+                opacity: 0.7;
+                filter: blur(4px);
+            }
+            100% {
+                transform: translateY(-80px) rotate(15deg);
+                opacity: 0;
+                filter: blur(15px);
+            }
+        }
+
+        /* Animação de reaparecimento individual */
+        @keyframes smokeAppear {
+            0% {
+                transform: translateY(40px) rotate(-10deg);
+                opacity: 0;
+                filter: blur(12px);
+            }
+            50% {
+                transform: translateY(10px) rotate(-3deg);
+                opacity: 0.5;
+                filter: blur(5px);
+            }
+            100% {
+                transform: translateY(0) rotate(0deg);
+                opacity: 1;
+                filter: blur(0px);
+            }
+        }
+
+        .smoke-letter.disappearing {
+            animation: smokeDisappear 0.6s ease-out forwards;
+        }
+
+        .smoke-letter.appearing {
+            animation: smokeAppear 0.6s ease-out forwards;
+        }
+
+        /* Partículas de fumaça */
+        .particle {
+            position: fixed;
+            pointer-events: none;
+            background: radial-gradient(circle, rgba(200,200,200,0.8) 0%, rgba(255,255,255,0) 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        @keyframes particleFloat {
+            0% {
+                transform: translateY(0) scale(1);
+                opacity: 0.8;
+            }
+            100% {
+                transform: translateY(-100px) scale(0);
+                opacity: 0;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .smoke-letter {
+                font-size: 3.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="smoke-wrapper" id="smokeWrapper">
+            <span class="smoke-letter" data-index="0">S</span>
+            <span class="smoke-letter" data-index="1">M</span>
+            <span class="smoke-letter" data-index="2">O</span>
+            <span class="smoke-letter" data-index="3">K</span>
+            <span class="smoke-letter" data-index="4">Y</span>
+        </div>
+    </div>
+
+    <script>
+        const letters = document.querySelectorAll('.smoke-letter');
+        let isMouseInside = false;
+        let disappearTimeout = null;
+        let appearTimeout = null;
+        let currentDisappearIndex = 0;
+        let currentAppearIndex = 4; // Começa pelo Y (índice 4)
+
+        // Função para criar partículas de fumaça
+        function createSmokeParticle(x, y, intensity = 1) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+           
+            const size = Math.random() * 15 * intensity + 5;
+            particle.style.width = `${size}px`;
+            particle.style.height = `${size}px`;
+            particle.style.left = `${x - size/2 + (Math.random() - 0.5) * 30}px`;
+            particle.style.top = `${y - size/2 + (Math.random() - 0.5) * 30}px`;
+           
+            const grayness = Math.random() * 100 + 155;
+            particle.style.background = `radial-gradient(circle, rgba(${grayness}, ${grayness}, ${grayness}, 0.7) 0%, rgba(255,255,255,0) 70%)`;
+           
+            const duration = Math.random() * 0.8 + 0.6;
+            particle.style.animation = `particleFloat ${duration}s ease-out forwards`;
+           
+            document.body.appendChild(particle);
+           
+            setTimeout(() => {
+                if (particle && particle.parentNode) {
+                    particle.remove();
+                }
+            }, duration * 1000);
+        }
+
+        // Criar partículas ao redor de uma letra específica
+        function createParticlesAroundLetter(letterElement, event) {
+            const rect = letterElement.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+           
+            // Determinar posição do mouse se disponível
+            let mouseX = centerX;
+            let mouseY = centerY;
+            if (event) {
+                mouseX = event.clientX;
+                mouseY = event.clientY;
+            }
+           
+            const numParticles = 12;
+            for (let i = 0; i < numParticles; i++) {
+                setTimeout(() => {
+                    createSmokeParticle(mouseX + (Math.random() - 0.5) * 40, mouseY + (Math.random() - 0.5) * 40, 0.8);
+                }, i * 30);
+            }
+        }
+
+        // Função para fazer desaparecer a próxima letra (começando do S)
+        function disappearNextLetter(event) {
+            if (currentDisappearIndex >= letters.length) {
+                return;
+            }
+           
+            const letter = letters[currentDisappearIndex];
+            if (!letter.classList.contains('disappearing') && !letter.classList.contains('appearing')) {
+                // Criar partículas antes da animação
+                createParticlesAroundLetter(letter, event);
+               
+                // Aplicar animação de desaparecimento
+                letter.classList.add('disappearing');
+               
+                // Remover classe após animação para permitir reaparecimento futuro
+                setTimeout(() => {
+                    letter.classList.remove('disappearing');
+                    letter.style.opacity = '0';
+                    letter.style.visibility = 'hidden';
+                }, 600);
+               
+                currentDisappearIndex++;
+               
+                // Continuar com a próxima letra
+                if (currentDisappearIndex < letters.length) {
+                    disappearTimeout = setTimeout(() => {
+                        if (isMouseInside) {
+                            disappearNextLetter(event);
+                        }
+                    }, 150); // Intervalo entre letras
+                }
+            }
+        }
+
+        // Função para fazer reaparecer a próxima letra (começando do Y)
+        function appearNextLetter() {
+            if (currentAppearIndex < 0) {
+                return;
+            }
+           
+            const letter = letters[currentAppearIndex];
+           
+            // Tornar a letra visível novamente
+            letter.style.visibility = 'visible';
+            letter.style.opacity = '0';
+           
+            if (!letter.classList.contains('appearing')) {
+                // Criar partículas ao redor da letra
+                createParticlesAroundLetter(letter, null);
+               
+                // Aplicar animação de reaparecimento
+                letter.classList.add('appearing');
+               
+                // Remover classe após animação
+                setTimeout(() => {
+                    letter.classList.remove('appearing');
+                    letter.style.opacity = '1';
+                }, 600);
+               
+                currentAppearIndex--;
+               
+                // Continuar com a próxima letra
+                if (currentAppearIndex >= 0) {
+                    appearTimeout = setTimeout(() => {
+                        if (!isMouseInside) {
+                            appearNextLetter();
+                        }
+                    }, 150); // Intervalo entre letras
+                }
+            }
+        }
+
+        // Resetar os índices quando mouse entra
+        function resetDisappearSequence() {
+            if (disappearTimeout) clearTimeout(disappearTimeout);
+            currentDisappearIndex = 0;
+        }
+
+        // Resetar os índices quando mouse sai
+        function resetAppearSequence() {
+            if (appearTimeout) clearTimeout(appearTimeout);
+            currentAppearIndex = letters.length - 1;
+        }
+
+        // Evento quando mouse entra na wrapper
+        const wrapper = document.getElementById('smokeWrapper');
+       
+        wrapper.addEventListener('mouseenter', (event) => {
+            if (!isMouseInside) {
+                isMouseInside = true;
+               
+                // Interromper qualquer sequência de aparecimento em andamento
+                if (appearTimeout) {
+                    clearTimeout(appearTimeout);
+                    appearTimeout = null;
+                }
+               
+                // Resetar índices
+                resetDisappearSequence();
+               
+                // Esconder todas as letras que estiverem visíveis
+                // Forçar todas as letras a ficarem visíveis antes de começar a desaparecer
+                for (let i = 0; i < letters.length; i++) {
+                    letters[i].style.visibility = 'visible';
+                    letters[i].style.opacity = '1';
+                    letters[i].classList.remove('disappearing', 'appearing');
+                }
+               
+                // Começar sequência de desaparecimento
+                disappearNextLetter(event);
+            }
+        });
+       
+        wrapper.addEventListener('mouseleave', () => {
+            if (isMouseInside) {
+                isMouseInside = false;
+               
+                // Interromper qualquer sequência de desaparecimento em andamento
+                if (disappearTimeout) {
+                    clearTimeout(disappearTimeout);
+                    disappearTimeout = null;
+                }
+               
+                // Resetar índices
+                resetAppearSequence();
+               
+                // Começar sequência de reaparecimento (do Y para o S)
+                appearNextLetter();
+            }
+        });
+
+        // Adicionar efeito de partículas ao passar o mouse sobre letras individuais
+        letters.forEach(letter => {
+            letter.addEventListener('mousemove', (e) => {
+                if (isMouseInside && !letter.classList.contains('disappearing')) {
+                    // Criar pequenas partículas ao mover o mouse sobre letras visíveis
+                    const rect = letter.getBoundingClientRect();
+                    const x = e.clientX;
+                    const y = e.clientY;
+                   
+                    if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+                        createSmokeParticle(x, y, 0.5);
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
